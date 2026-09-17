@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Photo Studio — BY:G33KY</title>
+<style>
+/* ── TOKENS ──────────────────────────────────────────────── */
+:root {
+  --hot-pink:   #ff2fb0;
+  --magenta:    #c4127b;
+  --violet:     #7b2ff7;
+  --cyan:       #2fe0ff;
+  --yellow:     #ffe94a;
+  --red:        #ff2f5e;
+  --black:      #0a0308;
+  --ink:        #160910;
+  --surface:    rgba(22,9,16,0.85);
+  --border:     rgba(255,47,176,0.22);
+  --text:       #f4e9f0;
+  --muted:      #9a7a88;
+  --card-w:     min(64vw, 280px);
+  /* MtG ratio 2.5 × 3.5 = 63×88mm */
+  --card-ratio: 63 / 88;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse at 18% -8%,  rgba(255,47,176,0.22), transparent 52%),
+    radial-gradient(ellipse at 95%  8%,  rgba(123,47,247,0.16), transparent 48%),
+    radial-gradient(ellipse at 50% 100%, rgba(47,224,255,0.08), transparent 55%),
+    var(--black);
+  color: var(--text);
+  font-family: 'Courier New', ui-monospace, monospace;
+  overflow-x: hidden;
+}
+
+/* scanline grime */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.022) 0px, rgba(255,255,255,0.022) 1px,
+    transparent 1px, transparent 3px
+  );
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: overlay;
+}
+
+/* ── NAV ─────────────────────────────────────────────────── */
+nav {
+  position: relative; z-index: 10;
+  display: flex; flex-wrap: wrap; gap: 1.2rem;
+  padding: 1rem 1.6rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10,3,8,0.65);
+  backdrop-filter: blur(8px);
+}
+nav a {
+  color: #e9b9d4;
+  text-decoration: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  transition: opacity .2s, color .2s;
+}
+nav a:hover { opacity: 1; color: var(--hot-pink); }
+nav .logo {
+  color: var(--hot-pink);
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  opacity: 1;
+  font-weight: bold;
+}
+
+/* ── HEADER ──────────────────────────────────────────────── */
+header {
+  position: relative; z-index: 2;
+  text-align: center;
+  padding: 2.8rem 1rem 0.6rem;
+}
+header h1 {
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  font-size: clamp(2rem, 6vw, 3.8rem);
+  letter-spacing: 0.06em;
+  background: linear-gradient(105deg, var(--yellow), var(--hot-pink) 35%, var(--cyan) 65%, var(--violet));
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgba(255,47,176,0.4));
+}
+header p {
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-top: 0.4rem;
+}
+
+/* ── MAIN LAYOUT ─────────────────────────────────────────── */
+main {
+  position: relative; z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr min(40vw, 340px) 1fr;
+  grid-template-rows: auto auto;
+  gap: 0;
+  padding: 1.6rem 1rem 4rem;
+  align-items: start;
+}
+
+/* left panel */
+.panel-left {
+  grid-column: 1;
+  display: flex; flex-direction: column; gap: 1.2rem;
+  padding: 0 1.2rem;
+  padding-top: 0.5rem;
+}
+
+/* center stage */
+.stage {
+  grid-column: 2;
+  display: flex; flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: min(85vh, 700px);
+}
+
+/* right panel */
+.panel-right {
+  grid-column: 3;
+  display: flex; flex-direction: column; gap: 1.2rem;
+  padding: 0 1.2rem;
+  padding-top: 0.5rem;
+}
+
+.hint {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── PANEL SECTIONS ──────────────────────────────────────── */
+.section-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hot-pink);
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.3rem;
+}
+
+/* ── UPLOAD ZONE ─────────────────────────────────────────── */
+.upload-zone {
+  border: 1px dashed rgba(255,47,176,0.4);
+  border-radius: 6px;
+  padding: 1.2rem 0.8rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: rgba(255,47,176,0.03);
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--hot-pink);
+  background: rgba(255,47,176,0.08);
+}
+.upload-zone input[type=file] {
+  position: absolute; inset: 0;
+  opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-zone .upload-icon { font-size: 1.6rem; display: block; }
+.upload-zone p {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  letter-spacing: 0.06em;
+}
+
+/* ── PRESET BUTTONS ──────────────────────────────────────── */
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.preset-btn {
+  padding: 0.55rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+  text-align: center;
+  transition: all .18s;
+  line-height: 1.3;
+}
+.preset-btn:hover { border-color: var(--hot-pink); background: rgba(255,47,176,0.1); }
+.preset-btn.active {
+  border-color: var(--hot-pink);
+  background: rgba(255,47,176,0.18);
+  color: var(--hot-pink);
+  box-shadow: 0 0 12px rgba(255,47,176,0.25);
+}
+.preset-btn .preset-icon { font-size: 1.1rem; display: block; margin-bottom: 0.2rem; }
+.preset-btn .preset-name { display: block; }
+
+/* ── SLIDERS ─────────────────────────────────────────────── */
+.slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.slider-item label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+.slider-item label span { color: var(--text); }
+input[type=range] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: rgba(255,47,176,0.25);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--hot-pink);
+  box-shadow: 0 0 6px rgba(255,47,176,0.6);
+}
+input[type=range]::-moz-range-thumb {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--hot-pink);
+  border: none;
+  box-shadow: 0 0 6px rgba(255,47,176,0.6);
+}
+
+/* ── BG PICKER ───────────────────────────────────────────── */
+.bg-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+.bg-swatch {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color .15s, transform .15s;
+}
+.bg-swatch:hover { transform: scale(1.08); }
+.bg-swatch.active { border-color: var(--hot-pink); box-shadow: 0 0 8px rgba(255,47,176,0.5); }
+
+/* ── EXPORT BUTTONS ──────────────────────────────────────── */
+.export-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.btn {
+  display: block; width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: center;
+  transition: all .18s;
+}
+.btn:hover { border-color: var(--cyan); background: rgba(47,224,255,0.1); color: var(--cyan); }
+.btn.primary {
+  border-color: var(--hot-pink);
+  background: rgba(255,47,176,0.12);
+  color: var(--hot-pink);
+}
+.btn.primary:hover { background: var(--hot-pink); color: var(--black); box-shadow: 0 0 20px rgba(255,47,176,0.5); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.recording {
+  border-color: var(--red);
+  background: rgba(255,47,94,0.18);
+  color: var(--red);
+  animation: pulse-btn 1s ease-in-out infinite;
+}
+@keyframes pulse-btn {
+  0%,100% { box-shadow: 0 0 8px rgba(255,47,94,0.3); }
+  50% { box-shadow: 0 0 20px rgba(255,47,94,0.7); }
+}
+
+.status-bar {
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-align: center;
+  min-height: 1.2em;
+}
+.status-bar.active { color: var(--cyan); }
+.status-bar.error { color: var(--red); }
+
+/* ── CARD WRAP ───────────────────────────────────────────── */
+.card-wrap {
+  position: relative;
+  width: var(--card-w);
+  aspect-ratio: var(--card-ratio);
+  touch-action: none;
+  will-change: transform;
+  transform:
+    translate3d(var(--tx,0px), var(--ty,0px), 0)
+    perspective(900px)
+    rotateX(var(--rx,0deg))
+    rotateY(var(--ry,0deg))
+    scale(var(--scale,1));
+  transition: transform 320ms cubic-bezier(.2,.8,.2,1), box-shadow 320ms ease;
+  cursor: grab;
+  flex-shrink: 0;
+}
+.card-wrap.grabbing { cursor: grabbing; transition: box-shadow 320ms ease; }
+.card-wrap.settling { transition: transform 550ms cubic-bezier(.2,.9,.25,1.2), box-shadow 320ms ease; }
+
+.card {
+  position: relative;
+  width: 100%; height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.5);
+  box-shadow:
+    0 30px 70px -10px rgba(0,0,0,0.85),
+    0 0 50px -8px rgba(255,47,176,0.3);
+  background: #1a0a14;
+}
+
+/* card image */
+.card-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* placeholder when no image */
+.card-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 1rem;
+}
+.card-placeholder .ph-icon { font-size: 2.5rem; opacity: 0.5; }
+
+/* ── FOIL LAYERS ─────────────────────────────────────────── */
+.foil {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  mix-blend-mode: color-dodge;
+  background-size: 220% 220%;
+  background-position: var(--fx,50%) var(--fy,50%);
+  transition: opacity .3s;
+}
+
+.glare {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  background: radial-gradient(
+    circle at var(--gx,50%) var(--gy,50%),
+    rgba(255,255,255,0.9) 0%,
+    rgba(255,255,255,0.25) 18%,
+    rgba(255,255,255,0) 45%
+  );
+  transition: opacity .3s;
+}
+
+/* sparkle canvas */
+#sparkleCanvas {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+.frame-edge {
+  position: absolute; inset: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), inset 0 0 28px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+/* ── PRESET STYLES applied via data-preset on .card ─────── */
+/* Normal */
+.card[data-preset="normal"] .foil  { opacity: 0; }
+.card[data-preset="normal"] .glare { opacity: 0.45; }
+
+/* Holo */
+.card[data-preset="holo"] .foil {
+  opacity: 0.6;
+  background: repeating-linear-gradient(
+    115deg,
+    rgba(255,47,176,0.9) 0%,   rgba(255,233,74,0.9) 8%,
+    rgba(47,224,255,0.9)  16%,  rgba(123,47,247,0.9) 24%,
+    rgba(255,47,94,0.9)   32%,  rgba(255,47,176,0.9) 40%
+  );
+  background-size: 220% 220%;
+}
+.card[data-preset="holo"] .glare { opacity: 0.85; }
+
+/* Holo Rare */
+.card[data-preset="holo-rare"] .foil {
+  opacity: 0.82;
+  background: repeating-linear-gradient(
+    105deg,
+    rgba(255,233,74,1)   0%,   rgba(255,47,94,1)   6%,
+    rgba(255,47,176,1)  12%,   rgba(123,47,247,1)  18%,
+    rgba(47,224,255,1)  24%,   rgba(255,233,74,1)  30%
+  );
+  background-size: 300% 300%;
+}
+.card[data-preset="holo-rare"] .glare { opacity: 1; }
+
+/* Gold / Vintage */
+.card[data-preset="gold"] .foil {
+  opacity: 0.5;
+  background: repeating-linear-gradient(
+    130deg,
+    rgba(255,220,60,0.9)  0%,  rgba(200,140,20,0.9)  12%,
+    rgba(255,245,180,0.9) 20%, rgba(180,110,10,0.9)  32%,
+    rgba(255,220,60,0.9)  40%
+  );
+  background-size: 200% 200%;
+}
+.card[data-preset="gold"] .glare { opacity: 0.6; mix-blend-mode: soft-light; }
+
+/* Prismatic */
+.card[data-preset="prismatic"] .foil {
+  opacity: 0.95;
+  background: conic-gradient(
+    rgba(255,47,176,0.95),  rgba(255,233,74,0.95),
+    rgba(47,224,255,0.95),  rgba(123,47,247,0.95),
+    rgba(255,47,94,0.95),   rgba(47,224,255,0.95),
+    rgba(255,47,176,0.95)
+  );
+  background-size: 200% 200%;
+  mix-blend-mode: color-dodge;
+}
+.card[data-preset="prismatic"] .glare { opacity: 1; }
+
+/* ── ROTATE ANIMATION ────────────────────────────────────── */
+.card-wrap.auto-spin {
+  transition: transform 80ms linear !important;
+}
+
+/* ── STAGE BG ─────────────────────────────────────────────── */
+.stage-bg {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  flex: 1;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.stage-bg::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: var(--stage-bg, radial-gradient(ellipse, #1a0a14 60%, #0a0308));
+  transition: background .4s;
+}
+
+/* ── FOOTER ──────────────────────────────────────────────── */
+footer {
+  position: relative; z-index: 2;
+  text-align: center;
+  font-size: 0.62rem;
+  color: var(--muted);
+  padding: 1.5rem 1rem 3rem;
+  letter-spacing: 0.06em;
+}
+
+/* ── PROGRESS BAR ────────────────────────────────────────── */
+.progress-wrap {
+  display: none;
+  width: 100%;
+  height: 3px;
+  background: rgba(255,47,176,0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-wrap.visible { display: block; }
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--hot-pink), var(--cyan));
+  border-radius: 2px;
+  transition: width .1s linear;
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 760px) {
+  main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  .panel-left  { grid-column: 1; grid-row: 2; padding: 0; }
+  .stage       { grid-column: 1; grid-row: 1; }
+  .panel-right { grid-column: 1; grid-row: 3; padding: 0; }
+  :root { --card-w: min(72vw, 260px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-wrap { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="logo" href="#">🃏 Card Photo Studio</a>
+  <a href="https://ad0rkableg33k.github.io/realityisbuffering/">яєʌ𝓵ɪтყ ɪѕ вuƒƒєяɪηｇ</a>
+  <a href="https://ad0rkableg33k.github.io/Nightwood-Oracle/">𝕌ηѕ𝕠ℓι𝕔ιтє𝕕 ᦔєᥴк 𝓅𝖎𝒸𝖘</a>
+  <a href="https://ad0rkableg33k.github.io/FontGenerator.html/">𝔽𝖆𝖓𝖈𝕪 𝔽𝖔𝖓𝕥</a>
+  <a href="https://github.com/ad0rkableg33k" target="_blank" rel="noopener">GitHub</a>
+</nav>
+
+<!-- HEADER -->
+<header>
+  <h1>CARD PHOTO STUDIO</h1>
+  <p>BY:G33KY &mdash; Load. Style. Capture.</p>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- LEFT PANEL -->
+  <div class="panel-left">
+
+    <div>
+      <div class="section-label">Load Card</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept="image/*">
+        <span class="upload-icon">📸</span>
+        <p>Drop a card photo here<br>or click to browse</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Card Type</div>
+      <div class="preset-grid">
+        <button class="preset-btn active" data-preset="normal">
+          <span class="preset-icon">🃏</span>
+          <span class="preset-name">Normal</span>
+        </button>
+        <button class="preset-btn" data-preset="holo">
+          <span class="preset-icon">✨</span>
+          <span class="preset-name">Holographic</span>
+        </button>
+        <button class="preset-btn" data-preset="holo-rare">
+          <span class="preset-icon">🌈</span>
+          <span class="preset-name">Holo Rare</span>
+        </button>
+        <button class="preset-btn" data-preset="gold">
+          <span class="preset-icon">🪙</span>
+          <span class="preset-name">Gold / Vintage</span>
+        </button>
+        <button class="preset-btn" data-preset="prismatic">
+          <span class="preset-icon">💎</span>
+          <span class="preset-name">Prismatic</span>
+        </button>
+        <button class="preset-btn" data-preset="shadow">
+          <span class="preset-icon">🌑</span>
+          <span class="preset-name">Dark Shadow</span>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Stage Background</div>
+      <div class="bg-grid" id="bgGrid">
+        <div class="bg-swatch active" data-bg="radial-gradient(ellipse, #1a0a14 60%, #0a0308)" style="background:radial-gradient(ellipse, #1a0a14 60%, #0a0308)"></div>
+        <div class="bg-swatch" data-bg="radial-gradient(ellipse, #001a2e 50%, #000812)" style="background:radial-gradient(ellipse, #001a2e 50%, #000812)"></div>
+        <div class="bg-swatch" data-bg="radial-gradient(ellipse, #0d1a00 50%, #030800)" style="background:radial-gradient(ellipse, #0d1a00 50%, #030800)"></div>
+        <div class="bg-swatch" data-bg="radial-gradient(ellipse, #1a1000 50%, #080400)" style="background:radial-gradient(ellipse, #1a1000 50%, #080400)"></div>
+        <div class="bg-swatch" data-bg="radial-gradient(ellipse, #1a0a14 30%, #3d0a28 100%)" style="background:radial-gradient(ellipse, #1a0a14 30%, #3d0a28 100%)"></div>
+        <div class="bg-swatch" data-bg="linear-gradient(135deg,#100010,#001025)" style="background:linear-gradient(135deg,#100010,#001025)"></div>
+        <div class="bg-swatch" data-bg="#111" style="background:#111"></div>
+        <div class="bg-swatch" data-bg="#e8e0d5" style="background:#e8e0d5"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CENTER STAGE -->
+  <div class="stage">
+    <div class="hint">tilt with mouse · drag to move · use controls to capture</div>
+
+    <div class="stage-bg" id="stageBg">
+      <div class="card-wrap" id="cardWrap">
+        <div class="card" id="card" data-preset="normal">
+          <img class="card-img" id="cardImg" src="" alt="Card" style="display:none">
+          <div class="card-placeholder" id="cardPlaceholder">
+            <span class="ph-icon">🃏</span>
+            <span>Load a card photo to begin</span>
+          </div>
+          <canvas id="sparkleCanvas"></canvas>
+          <div class="foil" id="foilLayer"></div>
+          <div class="glare" id="glareLayer"></div>
+          <div class="frame-edge"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">Ready — load a card to begin</div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right">
+
+    <div>
+      <div class="section-label">Effect Intensity</div>
+      <div class="slider-row">
+        <div class="slider-item">
+          <label>Foil Strength <span id="foilVal">65%</span></label>
+          <input type="range" id="foilStrength" min="0" max="100" value="65">
+        </div>
+        <div class="slider-item">
+          <label>Glare Strength <span id="glareVal">85%</span></label>
+          <input type="range" id="glareStrength" min="0" max="100" value="85">
+        </div>
+        <div class="slider-item">
+          <label>Tilt Range <span id="tiltVal">22°</span></label>
+          <input type="range" id="tiltRange" min="5" max="45" value="22">
+        </div>
+        <div class="slider-item">
+          <label>Sparkles <span id="sparkleVal">OFF</span></label>
+          <input type="range" id="sparkleAmount" min="0" max="60" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Rotation Preview</div>
+      <div class="export-section">
+        <button class="btn primary" id="spinBtn">▶ Auto-Spin Preview</button>
+        <button class="btn" id="sweepBtn">↔ Single Sweep</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Capture</div>
+      <div class="export-section">
+        <button class="btn" id="screenshotBtn">📷 Save PNG Screenshot</button>
+        <button class="btn primary" id="recordWebmBtn">⏺ Record WebM Video</button>
+        <button class="btn" id="recordGifBtn">🎞 Export GIF</button>
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+        <div class="status-bar" id="captureStatus">Load a card to enable capture</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Instructions</div>
+      <div style="font-size:0.6rem; line-height:1.8; color:var(--muted); letter-spacing:0.04em;">
+        <b style="color:var(--text);">1.</b> Drop your card photo into the loader<br>
+        <b style="color:var(--text);">2.</b> Pick a card type preset<br>
+        <b style="color:var(--text);">3.</b> Tilt with your mouse to preview the foil<br>
+        <b style="color:var(--text);">4.</b> Hit Auto-Spin then Record to capture<br>
+        <b style="color:var(--text);">5.</b> Download your video or GIF!
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  &copy; BY:G33KY &mdash; Card Photo Studio &mdash; add your card, pick your sheen, capture the magic
+</footer>
+
+<script>
+// ── gif.js loaded from CDN ────────────────────────────────
+// We load dynamically to avoid blocking
+let GIF = null;
+const gifScript = document.createElement('script');
+gifScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js';
+gifScript.onload = () => { GIF = window.GIF; };
+document.head.appendChild(gifScript);
+
+// ── html2canvas for screenshot ────────────────────────────
+const h2cScript = document.createElement('script');
+h2cScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+document.head.appendChild(h2cScript);
+
+// ── ELEMENTS ──────────────────────────────────────────────
+const wrap        = document.getElementById('cardWrap');
+const card        = document.getElementById('card');
+const cardImg     = document.getElementById('cardImg');
+const placeholder = document.getElementById('cardPlaceholder');
+const foilLayer   = document.getElementById('foilLayer');
+const glareLayer  = document.getElementById('glareLayer');
+const sparkleCanvas = document.getElementById('sparkleCanvas');
+const statusBar   = document.getElementById('statusBar');
+const captureStatus = document.getElementById('captureStatus');
+const stageBg     = document.getElementById('stageBg');
+const progressWrap = document.getElementById('progressWrap');
+const progressBar  = document.getElementById('progressBar');
+
+// sliders
+const foilStrengthEl  = document.getElementById('foilStrength');
+const glareStrengthEl = document.getElementById('glareStrength');
+const tiltRangeEl     = document.getElementById('tiltRange');
+const sparkleAmountEl = document.getElementById('sparkleAmount');
+
+// buttons
+const spinBtn       = document.getElementById('spinBtn');
+const sweepBtn      = document.getElementById('sweepBtn');
+const screenshotBtn = document.getElementById('screenshotBtn');
+const recordWebmBtn = document.getElementById('recordWebmBtn');
+const recordGifBtn  = document.getElementById('recordGifBtn');
+
+// ── STATE ─────────────────────────────────────────────────
+let cardLoaded  = false;
+let autoSpinning = false;
+let spinRAF      = null;
+let sweepRAF     = null;
+let currentPreset = 'normal';
+let tiltRange    = 22;
+let foilStrength = 0.65;
+let glareStrength= 0.85;
+let sparkleCount = 0;
+let mediaRecorder = null;
+let isRecording  = false;
+
+// ── SPARKLE SYSTEM ────────────────────────────────────────
+const ctx = sparkleCanvas.getContext('2d');
+let sparticles = [];
+
+function resizeSparkleCanvas() {
+  const r = card.getBoundingClientRect();
+  sparkleCanvas.width  = r.width;
+  sparkleCanvas.height = r.height;
+}
+
+function spawnSparticle() {
+  const r = sparkleCanvas;
+  sparticles.push({
+    x: Math.random() * r.width,
+    y: Math.random() * r.height,
+    size: 1 + Math.random() * 3,
+    life: 0,
+    maxLife: 30 + Math.random() * 40,
+    color: ['#ff2fb0','#ffe94a','#2fe0ff','#7b2ff7','#ffffff'][Math.floor(Math.random()*5)]
+  });
+}
+
+function drawSparticles() {
+  ctx.clearRect(0, 0, sparkleCanvas.width, sparkleCanvas.height);
+  if (sparkleCount <= 0) return;
+  if (Math.random() < sparkleCount / 120) spawnSparticle();
+  for (let i = sparticles.length - 1; i >= 0; i--) {
+    const s = sparticles[i];
+    const progress = s.life / s.maxLife;
+    const alpha = Math.sin(progress * Math.PI);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size * (1 - progress * 0.5), 0, Math.PI * 2);
+    ctx.fillStyle = s.color;
+    ctx.globalAlpha = alpha;
+    ctx.fill();
+    // cross sparkle
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(s.x - s.size * 2, s.y);
+    ctx.lineTo(s.x + s.size * 2, s.y);
+    ctx.moveTo(s.x, s.y - s.size * 2);
+    ctx.lineTo(s.x, s.y + s.size * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    s.life++;
+    if (s.life >= s.maxLife) sparticles.splice(i, 1);
+  }
+}
+
+// ── TILT / FOIL LOGIC ─────────────────────────────────────
+let tx = 0, ty = 0;
+let dragging = false;
+let startX = 0, startY = 0, originX = 0, originY = 0;
+
+function setVar(name, val) { wrap.style.setProperty(name, val); }
+
+function updateTilt(clientX, clientY) {
+  const rect = card.getBoundingClientRect();
+  const relX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  const relY = Math.max(0, Math.min(1, (clientY - rect.top)  / rect.height));
+  const rx = (0.5 - relY) * tiltRange;
+  const ry = (relX - 0.5) * (tiltRange * 1.2);
+  setVar('--rx', rx.toFixed(2) + 'deg');
+  setVar('--ry', ry.toFixed(2) + 'deg');
+  setVar('--fx', (relX * 100).toFixed(1) + '%');
+  setVar('--fy', (relY * 100).toFixed(1) + '%');
+  setVar('--gx', (relX * 100).toFixed(1) + '%');
+  setVar('--gy', (relY * 100).toFixed(1) + '%');
+}
+
+function resetTilt() {
+  setVar('--rx', '0deg'); setVar('--ry', '0deg');
+  setVar('--fx', '50%');  setVar('--fy', '50%');
+  setVar('--gx', '50%');  setVar('--gy', '50%');
+  setVar('--scale', '1');
+}
+
+wrap.addEventListener('pointermove', e => {
+  if (!dragging && !autoSpinning) {
+    wrap.classList.remove('settling');
+    updateTilt(e.clientX, e.clientY);
+    drawSparticles();
+  }
+});
+wrap.addEventListener('pointerenter', () => { if (!autoSpinning) setVar('--scale','1.04'); });
+wrap.addEventListener('pointerleave', () => {
+  if (!dragging && !autoSpinning) { wrap.classList.add('settling'); resetTilt(); }
+});
+wrap.addEventListener('pointerdown', e => {
+  if (autoSpinning) return;
+  dragging = true;
+  wrap.classList.add('grabbing'); wrap.classList.remove('settling');
+  wrap.setPointerCapture(e.pointerId);
+  startX = e.clientX; startY = e.clientY;
+  originX = tx; originY = ty;
+  setVar('--scale','1.08');
+});
+wrap.addEventListener('pointermove', e => {
+  if (dragging) {
+    tx = originX + (e.clientX - startX);
+    ty = originY + (e.clientY - startY);
+    setVar('--tx', tx + 'px');
+    setVar('--ty', ty + 'px');
+    updateTilt(e.clientX, e.clientY);
+  }
+});
+function endDrag() {
+  if (!dragging) return;
+  dragging = false;
+  wrap.classList.remove('grabbing');
+  setVar('--scale','1');
+}
+wrap.addEventListener('pointerup', endDrag);
+wrap.addEventListener('pointercancel', endDrag);
+
+// ── UPLOAD ────────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+
+function loadImage(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    setStatus(statusBar, 'That file type is not supported — use JPG, PNG, WebP, etc.', 'error');
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  cardImg.onload = () => {
+    cardLoaded = true;
+    placeholder.style.display = 'none';
+    cardImg.style.display = 'block';
+    setStatus(statusBar, `Loaded: ${file.name}`, '');
+    enableCapture();
+    resizeSparkleCanvas();
+  };
+  cardImg.src = url;
+}
+
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadImage(e.target.files[0]); });
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+
+// ── PRESETS ───────────────────────────────────────────────
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = btn.dataset.preset;
+    card.dataset.preset = currentPreset;
+    applyPresetDefaults(currentPreset);
+    setStatus(statusBar, `Preset: ${btn.querySelector('.preset-name').textContent}`, '');
+  });
+});
+
+function applyPresetDefaults(preset) {
+  // foil / glare defaults per preset
+  const defaults = {
+    'normal':    { foil: 0,    glare: 0.45, sparkle: 0  },
+    'holo':      { foil: 0.6,  glare: 0.85, sparkle: 0  },
+    'holo-rare': { foil: 0.82, glare: 1.0,  sparkle: 30 },
+    'gold':      { foil: 0.5,  glare: 0.6,  sparkle: 0  },
+    'prismatic': { foil: 0.95, glare: 1.0,  sparkle: 50 },
+    'shadow':    { foil: 0,    glare: 0.2,  sparkle: 0  },
+  };
+  const d = defaults[preset] || defaults['normal'];
+  foilStrengthEl.value  = Math.round(d.foil * 100);
+  glareStrengthEl.value = Math.round(d.glare * 100);
+  sparkleAmountEl.value = d.sparkle;
+  foilStrength  = d.foil;
+  glareStrength = d.glare;
+  sparkleCount  = d.sparkle;
+  applySliderValues();
+}
+
+// shadow preset extra style
+const shadowStyle = document.createElement('style');
+shadowStyle.textContent = `
+  .card[data-preset="shadow"] .foil  { opacity:0; }
+  .card[data-preset="shadow"] .glare { opacity:0.2; mix-blend-mode: multiply; }
+  .card[data-preset="shadow"]        { filter: contrast(1.1) saturate(0.4) brightness(0.75); box-shadow: 0 40px 80px -10px rgba(0,0,0,0.98), 0 0 60px rgba(0,0,0,0.9); }
+  .card[data-preset="shadow"] .frame-edge { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 0 40px rgba(0,0,0,0.8); }
+`;
+document.head.appendChild(shadowStyle);
+
+// ── SLIDERS ───────────────────────────────────────────────
+function applySliderValues() {
+  foilLayer.style.opacity  = foilStrength;
+  glareLayer.style.opacity = glareStrength;
+  document.getElementById('foilVal').textContent  = Math.round(foilStrength * 100) + '%';
+  document.getElementById('glareVal').textContent = Math.round(glareStrength * 100) + '%';
+  document.getElementById('tiltVal').textContent  = tiltRange + '°';
+  document.getElementById('sparkleVal').textContent = sparkleCount > 0 ? sparkleCount : 'OFF';
+}
+
+foilStrengthEl.addEventListener('input', () => {
+  foilStrength = foilStrengthEl.value / 100;
+  applySliderValues();
+});
+glareStrengthEl.addEventListener('input', () => {
+  glareStrength = glareStrengthEl.value / 100;
+  applySliderValues();
+});
+tiltRangeEl.addEventListener('input', () => {
+  tiltRange = parseInt(tiltRangeEl.value);
+  applySliderValues();
+});
+sparkleAmountEl.addEventListener('input', () => {
+  sparkleCount = parseInt(sparkleAmountEl.value);
+  applySliderValues();
+});
+
+// ── BG SWATCHES ───────────────────────────────────────────
+document.querySelectorAll('.bg-swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.bg-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+    stageBg.style.setProperty('--stage-bg', sw.dataset.bg);
+  });
+});
+
+// ── SPIN / SWEEP ──────────────────────────────────────────
+let spinAngle = 0;
+
+function doSpin() {
+  spinAngle += 0.8;
+  const rad = spinAngle * Math.PI / 180;
+  const ryDeg = Math.sin(rad) * (tiltRange * 1.2);
+  const rxDeg = Math.cos(rad * 0.7) * (tiltRange * 0.5);
+  setVar('--ry', ryDeg.toFixed(2) + 'deg');
+  setVar('--rx', rxDeg.toFixed(2) + 'deg');
+  // update foil too
+  const relX = (Math.sin(rad) + 1) / 2;
+  const relY = (Math.cos(rad * 0.7) + 1) / 2;
+  setVar('--fx', (relX * 100).toFixed(1) + '%');
+  setVar('--fy', (relY * 100).toFixed(1) + '%');
+  setVar('--gx', (relX * 100).toFixed(1) + '%');
+  setVar('--gy', (relY * 100).toFixed(1) + '%');
+  drawSparticles();
+  spinRAF = requestAnimationFrame(doSpin);
+}
+
+spinBtn.addEventListener('click', () => {
+  if (autoSpinning) {
+    autoSpinning = false;
+    cancelAnimationFrame(spinRAF);
+    wrap.classList.remove('auto-spin');
+    resetTilt();
+    spinBtn.textContent = '▶ Auto-Spin Preview';
+    setStatus(statusBar, 'Spin stopped', '');
+  } else {
+    autoSpinning = true;
+    wrap.classList.add('auto-spin');
+    spinBtn.textContent = '⏹ Stop Spin';
+    setStatus(statusBar, 'Auto-spinning…', 'active');
+    doSpin();
+  }
+});
+
+sweepBtn.addEventListener('click', () => {
+  if (sweepRAF) return;
+  let t = 0;
+  const dur = 90; // frames
+  function sweep() {
+    t++;
+    const progress = t / dur;
+    const ryDeg = Math.sin(progress * Math.PI) * (tiltRange * 1.2) * (progress < 0.5 ? 1 : -1);
+    const rxDeg = Math.sin(progress * Math.PI * 2) * tiltRange * 0.3;
+    setVar('--ry', ryDeg.toFixed(2) + 'deg');
+    setVar('--rx', rxDeg.toFixed(2) + 'deg');
+    const relX = (ryDeg / (tiltRange * 1.2) + 1) / 2;
+    setVar('--fx', (relX * 100).toFixed(1) + '%');
+    setVar('--fy', '50%');
+    setVar('--gx', (relX * 100).toFixed(1) + '%');
+    setVar('--gy', '50%');
+    drawSparticles();
+    if (t < dur) {
+      sweepRAF = requestAnimationFrame(sweep);
+    } else {
+      sweepRAF = null;
+      resetTilt();
+    }
+  }
+  sweepRAF = requestAnimationFrame(sweep);
+});
+
+// ── STATUS HELPER ─────────────────────────────────────────
+function setStatus(el, msg, type) {
+  el.textContent = msg;
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+}
+
+function enableCapture() {
+  screenshotBtn.disabled = false;
+  recordWebmBtn.disabled = false;
+  recordGifBtn.disabled  = false;
+  setStatus(captureStatus, 'Ready to capture', '');
+}
+
+// ── SCREENSHOT ────────────────────────────────────────────
+screenshotBtn.addEventListener('click', async () => {
+  if (!cardLoaded) { setStatus(captureStatus, 'Load a card first', 'error'); return; }
+  setStatus(captureStatus, 'Capturing screenshot…', 'active');
+  try {
+    const canvas = await html2canvas(wrap, {
+      backgroundColor: null,
+      useCORS: true,
+      scale: 2,
+      logging: false,
+    });
+    const a = document.createElement('a');
+    a.download = 'card-studio-screenshot.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    setStatus(captureStatus, 'Screenshot saved!', '');
+  } catch (e) {
+    setStatus(captureStatus, 'Screenshot failed — try WebM instead', 'error');
+  }
+});
+
+// ── WEBM RECORDING ────────────────────────────────────────
+recordWebmBtn.addEventListener('click', () => {
+  if (!cardLoaded) { setStatus(captureStatus, 'Load a card first', 'error'); return; }
+  if (isRecording) {
+    stopWebmRecording();
+    return;
+  }
+  startWebmRecording();
+});
+
+function startWebmRecording() {
+  // We use a hidden offscreen canvas to mirror the card stage
+  const stageEl = stageBg;
+  let stream;
+  try {
+    stream = stageEl.captureStream(30);
+  } catch(e) {
+    // Fallback: record from the wrap element via a canvas stream approach
+    setStatus(captureStatus, 'captureStream not supported in this browser — try GIF export', 'error');
+    return;
+  }
+
+  const chunks = [];
+  const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+    ? 'video/webm;codecs=vp9'
+    : 'video/webm';
+
+  mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_000_000 });
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: mimeType });
+    const a = document.createElement('a');
+    a.download = 'card-studio-capture.webm';
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    isRecording = false;
+    recordWebmBtn.textContent = '⏺ Record WebM Video';
+    recordWebmBtn.classList.remove('recording');
+    progressWrap.classList.remove('visible');
+    setStatus(captureStatus, 'WebM saved! Convert to GIF at ezgif.com', '');
+
+    // auto start spin if not already
+    if (!autoSpinning) {
+      spinBtn.click(); // start
+      setTimeout(() => spinBtn.click(), 100); // then stop (noop — just ensure stopped)
+    }
+  };
+
+  // start spin automatically
+  if (!autoSpinning) { spinBtn.click(); }
+
+  mediaRecorder.start(100);
+  isRecording = true;
+  recordWebmBtn.textContent = '⏹ Stop Recording';
+  recordWebmBtn.classList.add('recording');
+  progressWrap.classList.add('visible');
+  setStatus(captureStatus, 'Recording… stop when ready', 'active');
+
+  // progress ticker
+  let pct = 0;
+  const pInterval = setInterval(() => {
+    pct = Math.min(pct + 0.5, 99);
+    progressBar.style.width = pct + '%';
+    if (!isRecording) clearInterval(pInterval);
+  }, 100);
+}
+
+function stopWebmRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    progressBar.style.width = '100%';
+  }
+}
+
+// ── GIF EXPORT ────────────────────────────────────────────
+recordGifBtn.addEventListener('click', async () => {
+  if (!cardLoaded) { setStatus(captureStatus, 'Load a card first', 'error'); return; }
+  if (!GIF) { setStatus(captureStatus, 'gif.js still loading — try again in a second', 'error'); return; }
+
+  setStatus(captureStatus, 'Rendering GIF frames… this takes ~15s', 'active');
+  progressWrap.classList.add('visible');
+  progressBar.style.width = '0%';
+  recordGifBtn.disabled = true;
+
+  const wasSpinning = autoSpinning;
+  if (autoSpinning) { spinBtn.click(); } // stop spin first
+
+  const frameCount = 36;
+  const frameDelay = 60; // ms per frame in output gif
+
+  const gif = new GIF({
+    workers: 2,
+    quality: 8,
+    workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
+    width:  wrap.offsetWidth  * 2,
+    height: wrap.offsetHeight * 2,
+    transparent: null,
+    background: '#0a0308',
+  });
+
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width  = wrap.offsetWidth  * 2;
+  offCanvas.height = wrap.offsetHeight * 2;
+  const offCtx = offCanvas.getContext('2d');
+
+  async function captureFrame(angle) {
+    return new Promise(resolve => {
+      const rad = angle * Math.PI / 180;
+      const ryDeg = Math.sin(rad) * (tiltRange * 1.2);
+      const rxDeg = Math.cos(rad * 0.7) * (tiltRange * 0.5);
+      setVar('--ry', ryDeg.toFixed(2) + 'deg');
+      setVar('--rx', rxDeg.toFixed(2) + 'deg');
+      const relX = (Math.sin(rad) + 1) / 2;
+      const relY = (Math.cos(rad * 0.7) + 1) / 2;
+      setVar('--fx', (relX * 100).toFixed(1) + '%');
+      setVar('--fy', (relY * 100).toFixed(1) + '%');
+      setVar('--gx', (relX * 100).toFixed(1) + '%');
+      setVar('--gy', (relY * 100).toFixed(1) + '%');
+      drawSparticles();
+
+      // Wait one frame for CSS to apply, then capture with html2canvas
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          html2canvas(wrap, {
+            backgroundColor: '#0a0308',
+            useCORS: true,
+            scale: 2,
+            logging: false,
+          }).then(canvas => {
+            offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+            offCtx.drawImage(canvas, 0, 0);
+            gif.addFrame(offCanvas, { copy: true, delay: frameDelay });
+            resolve();
+          }).catch(() => resolve());
+        }, 30);
+      });
+    });
+  }
+
+  for (let i = 0; i < frameCount; i++) {
+    const angle = (i / frameCount) * 360;
+    await captureFrame(angle);
+    progressBar.style.width = Math.round((i / frameCount) * 75) + '%';
+  }
+
+  gif.on('progress', p => {
+    progressBar.style.width = Math.round(75 + p * 25) + '%';
+  });
+
+  gif.on('finished', blob => {
+    const a = document.createElement('a');
+    a.download = 'card-studio.gif';
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    recordGifBtn.disabled = false;
+    progressWrap.classList.remove('visible');
+    resetTilt();
+    setStatus(captureStatus, 'GIF exported and saved!', '');
+    if (wasSpinning) spinBtn.click();
+  });
+
+  setStatus(captureStatus, 'Encoding GIF… almost there', 'active');
+  gif.render();
+});
+
+// ── MAIN SPARKLE LOOP ─────────────────────────────────────
+function sparkleLoop() {
+  if (sparkleCount > 0 && (autoSpinning || dragging)) drawSparticles();
+  requestAnimationFrame(sparkleLoop);
+}
+sparkleLoop();
+
+// ── INIT ──────────────────────────────────────────────────
+applySliderValues();
+resetTilt();
+screenshotBtn.disabled = true;
+recordWebmBtn.disabled = true;
+recordGifBtn.disabled  = true;
+window.addEventListener('resize', resizeSparkleCanvas);
+resizeSparkleCanvas();
+</script>
+
+</body>
+</html>
