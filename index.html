@@ -714,22 +714,84 @@ document.querySelectorAll('.bg-swatch').forEach(sw=>{
 });
 
 // ── SPIN ──────────────────────────────────────────────────
-function doSpin(){
-  spinAngle+=spinSpeedDeg;const rad=spinAngle*Math.PI/180;
-  const ryDeg=((spinAngle%360)-180),rxDeg=Math.sin(rad*0.4)*tiltRange*0.35;
-  setVar('--ry',ryDeg.toFixed(2)+'deg');setVar('--rx',rxDeg.toFixed(2)+'deg');
-  const normalizedAngle=((spinAngle%360)+360)%360;
-  if(backLoaded){
-    if(normalizedAngle>90&&normalizedAngle<270){if(flipState!=='back'){flipState='back';cardImg.style.display='none';cardBackImg.style.display='block';foilCanvas.style.display='none';sparkleCanvas.style.display='none';}}
-    else{if(flipState!=='front'){flipState='front';cardImg.style.display='block';cardBackImg.style.display='none';foilCanvas.style.display='block';sparkleCanvas.style.display='block';}}
-  }
-  foilRelX=(Math.sin(rad)+1)/2;foilRelY=(Math.cos(rad*0.6)+1)/2;
-  setVar('--gx',(foilRelX*100).toFixed(1)+'%');setVar('--gy',(foilRelY*100).toFixed(1)+'%');
-  drawFoil();spinRAF=requestAnimationFrame(doSpin);
+function applyMirrorFix(normalizedAngle){
+  // When we're in the back-face window (90-270°) the 3D rotation
+  // makes the image appear mirrored — counter it with scaleX(-1)
+  const mirrored = normalizedAngle > 90 && normalizedAngle < 270;
+  card.style.transform = mirrored ? 'scaleX(-1)' : '';
 }
-spinBtn.addEventListener('click',()=>{
-  if(autoSpinning){autoSpinning=false;cancelAnimationFrame(spinRAF);wrap.classList.remove('spinning');flipState='front';cardImg.style.display=cardLoaded?'block':'none';cardBackImg.style.display='none';foilCanvas.style.display='block';sparkleCanvas.style.display='block';resetTilt();spinBtn.textContent='▶ Auto-Spin Loop';spinBtn.classList.remove('active-spin');setStatus(statusBar,'Spin stopped','');}
-  else{autoSpinning=true;wrap.classList.add('spinning');spinBtn.textContent='⏹ Stop Spin';spinBtn.classList.add('active-spin');setStatus(statusBar,backLoaded?'Spinning — front & back flip active!':'Spinning…','active');doSpin();}
+
+function doSpin(){
+  spinAngle += spinSpeedDeg;
+  const rad = spinAngle * Math.PI / 180;
+  const ryDeg = ((spinAngle % 360) - 180);
+  const rxDeg = Math.sin(rad * 0.4) * tiltRange * 0.35;
+  setVar('--ry', ryDeg.toFixed(2) + 'deg');
+  setVar('--rx', rxDeg.toFixed(2) + 'deg');
+
+  const normalizedAngle = ((spinAngle % 360) + 360) % 360;
+  const inBackFace = normalizedAngle > 90 && normalizedAngle < 270;
+
+  // apply mirror correction
+  applyMirrorFix(normalizedAngle);
+
+  if(backLoaded){
+    if(inBackFace){
+      if(flipState !== 'back'){
+        flipState = 'back';
+        cardImg.style.display = 'none';
+        cardBackImg.style.display = 'block';
+        foilCanvas.style.display = 'none';
+        sparkleCanvas.style.display = 'none';
+      }
+    } else {
+      if(flipState !== 'front'){
+        flipState = 'front';
+        cardImg.style.display = 'block';
+        cardBackImg.style.display = 'none';
+        foilCanvas.style.display = 'block';
+        sparkleCanvas.style.display = 'block';
+      }
+    }
+  } else {
+    // no back image — still need mirror fix so front never looks flipped
+    // scaleX(-1) on card already handled by applyMirrorFix above
+  }
+
+  foilRelX = (Math.sin(rad) + 1) / 2;
+  foilRelY = (Math.cos(rad * 0.6) + 1) / 2;
+  setVar('--gx', (foilRelX * 100).toFixed(1) + '%');
+  setVar('--gy', (foilRelY * 100).toFixed(1) + '%');
+  drawFoil();
+  spinRAF = requestAnimationFrame(doSpin);
+}
+
+function stopSpin(){
+  autoSpinning = false;
+  cancelAnimationFrame(spinRAF);
+  wrap.classList.remove('spinning');
+  card.style.transform = ''; // clear mirror fix
+  flipState = 'front';
+  cardImg.style.display = cardLoaded ? 'block' : 'none';
+  cardBackImg.style.display = 'none';
+  foilCanvas.style.display = 'block';
+  sparkleCanvas.style.display = 'block';
+  resetTilt();
+  spinBtn.textContent = '▶ Auto-Spin Loop';
+  spinBtn.classList.remove('active-spin');
+  setStatus(statusBar, 'Spin stopped', '');
+}
+
+spinBtn.addEventListener('click', () => {
+  if(autoSpinning){ stopSpin(); }
+  else {
+    autoSpinning = true;
+    wrap.classList.add('spinning');
+    spinBtn.textContent = '⏹ Stop Spin';
+    spinBtn.classList.add('active-spin');
+    setStatus(statusBar, backLoaded ? 'Spinning — front & back flip active!' : 'Spinning…', 'active');
+    doSpin();
+  }
 });
 sweepBtn.addEventListener('click',()=>{
   if(sweepRAF||autoSpinning)return;let t=0;const dur=90;
