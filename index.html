@@ -715,9 +715,9 @@ document.querySelectorAll('.bg-swatch').forEach(sw=>{
 
 // ── SPIN ──────────────────────────────────────────────────
 function applyMirrorFix(normalizedAngle){
-  // When we're in the back-face window (90-270°) the 3D rotation
-  // makes the image appear mirrored — counter it with scaleX(-1)
-  const mirrored = normalizedAngle > 90 && normalizedAngle < 270;
+  // The front face (0-90° and 270-360°) gets mirrored by the rotateY
+  // on the parent wrap — counter it so the image always reads correctly
+  const mirrored = normalizedAngle <= 90 || normalizedAngle >= 270;
   card.style.transform = mirrored ? 'scaleX(-1)' : '';
 }
 
