@@ -107,7 +107,7 @@ input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;bac
 .card-wrap.settling{transition:transform 550ms cubic-bezier(.2,.9,.25,1.2);}
 .card-wrap.spinning{transition:transform 80ms linear;}
 
-.card{position:relative;width:100%;height:100%;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,0.5);box-shadow:0 30px 70px -10px rgba(0,0,0,0.85),0 0 50px -8px rgba(255,47,176,0.3);background:#1a0a14;}
+.card{position:relative;width:100%;height:100%;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,0.5);box-shadow:0 30px 70px -10px rgba(0,0,0,0.85),0 0 50px -8px rgba(255,47,176,0.3);background:#1a0a14;backface-visibility:hidden;-webkit-backface-visibility:hidden;}
 .card-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none;}
 .card-back-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;user-select:none;-webkit-user-drag:none;}
 .card-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.5rem;color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:0.8rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;text-align:center;padding:1rem;}
@@ -714,26 +714,20 @@ document.querySelectorAll('.bg-swatch').forEach(sw=>{
 });
 
 // ── SPIN ──────────────────────────────────────────────────
-function applyMirrorFix(normalizedAngle){
-  // The front face (0-90° and 270-360°) gets mirrored by the rotateY
-  // on the parent wrap — counter it so the image always reads correctly
-  const mirrored = normalizedAngle <= 90 || normalizedAngle >= 270;
-  card.style.transform = mirrored ? 'scaleX(-1)' : '';
-}
-
 function doSpin(){
   spinAngle += spinSpeedDeg;
   const rad = spinAngle * Math.PI / 180;
-  const ryDeg = ((spinAngle % 360) - 180);
+
+  // Use a clean 0-360 rotation on Y so it never goes negative
+  // This keeps the card always facing correctly — no mirroring
+  const ryDeg = spinAngle % 360;
   const rxDeg = Math.sin(rad * 0.4) * tiltRange * 0.35;
+
   setVar('--ry', ryDeg.toFixed(2) + 'deg');
   setVar('--rx', rxDeg.toFixed(2) + 'deg');
 
-  const normalizedAngle = ((spinAngle % 360) + 360) % 360;
+  const normalizedAngle = ryDeg;
   const inBackFace = normalizedAngle > 90 && normalizedAngle < 270;
-
-  // apply mirror correction
-  applyMirrorFix(normalizedAngle);
 
   if(backLoaded){
     if(inBackFace){
@@ -753,9 +747,6 @@ function doSpin(){
         sparkleCanvas.style.display = 'block';
       }
     }
-  } else {
-    // no back image — still need mirror fix so front never looks flipped
-    // scaleX(-1) on card already handled by applyMirrorFix above
   }
 
   foilRelX = (Math.sin(rad) + 1) / 2;
@@ -770,7 +761,7 @@ function stopSpin(){
   autoSpinning = false;
   cancelAnimationFrame(spinRAF);
   wrap.classList.remove('spinning');
-  card.style.transform = ''; // clear mirror fix
+  card.style.transform = '';
   flipState = 'front';
   cardImg.style.display = cardLoaded ? 'block' : 'none';
   cardBackImg.style.display = 'none';
