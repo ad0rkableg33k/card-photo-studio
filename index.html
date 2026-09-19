@@ -970,11 +970,14 @@ function generateWidgetCode(frontUrl,backUrl,preset,region,width,autospin,bg){
 
   function doSpin(){
     spinAngle+=0.6;var rad=spinAngle*Math.PI/180;
-    sv('--cw-ry',((spinAngle%360-180)).toFixed(2)+'deg');
+    // Use 0-360 continuous rotation — avoids the mirroring that -180/180 causes
+    var ryDeg=spinAngle%360;
+    sv('--cw-ry',ryDeg.toFixed(2)+'deg');
     sv('--cw-rx',(Math.sin(rad*0.4)*tiltRange*0.35).toFixed(2)+'deg');
-    var norm=((spinAngle%360)+360)%360;
+    var norm=ryDeg;
+    var inBack=norm>90&&norm<270;
     if(back){
-      if(norm>90&&norm<270){if(flipState!=='back'){flipState='back';front.style.display='none';back.style.display='block';foilCanvas.style.display='none';}}
+      if(inBack){if(flipState!=='back'){flipState='back';front.style.display='none';back.style.display='block';foilCanvas.style.display='none';}}
       else{if(flipState!=='front'){flipState='front';front.style.display='block';back.style.display='none';foilCanvas.style.display='block';}}
     }
     relX=(Math.sin(rad)+1)/2;relY=(Math.cos(rad*0.6)+1)/2;
